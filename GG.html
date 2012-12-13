@@ -34,9 +34,14 @@
 			AIM_SIZE = 10;
 			AIM_DIST = 50;
 
+			ENIMIES_COUNT = 100;
+			LIVES = 3;
+			GAME_OVER = 0;
+			PLAYER_CLOLOR = 100;
+
 			
-			LEVEL_VALUES = 	[{arrows: 100, bombs: 10, enemies: 50, shells_lim : 20}, 
-			                 {arrows: 100, bombs: 10, enemies: 100, shells_lim : 2},
+			LEVEL_VALUES = 	[{arrows: 100, bombs: 10, enemies: 20, shells_lim : 20}, 
+			                 {arrows: 100, bombs: 10, enemies: 50, shells_lim : 3},
 			                 {arrows: 100, bombs: 10, enemies: 100, shells_lim : 1}];
 			
 			//controls
@@ -51,7 +56,7 @@
 			angle = -Math.PI/6;
 			weapon = ARROW;
 			enemies = new Array(MAX_ENEMIES_LIM);
-
+			landscape = new Array(2000);
 			
 			function main()
 			{
@@ -64,17 +69,25 @@
 					shells[i] = {x : 0, y : 0, t: 0, f: 0, cx : 0, cy1: 0 , cy2: 0, type: 0};
 				for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
 					enemies[i] = {x : 0, y : 0, v: 0, active: 0};
+					
+				ENEMIES_COUNT = MAX_ENEMIES_LIM;
+
 				ctx = canvas.getContext("2d");
 				ctx.font = "50px Consolas";
 				ctx.fillStyle = "rgb(0,0,255)";
 				ctx.fillText("TIME TO AIM YOUR ARROWS!", 130, 160);
 				ctx.fillStyle = "rgb(0,255,0)";
-				ctx.fillRect(0, 300, canvas.width, canvas.height - 300);
+				ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
 				ctx.strokeStyle = "rgb(0,0,0)"
 				ctx.lineWidth = 2;
 				ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+				STARTY = canvas.height/2-50;
+				for (var i = 0; i < canvas.width; ++i)
+					landscape[i] = canvas.height/2-Math.random()*10;
+				
 			}
-			
+
 			function draw_shell(s)
 			{
 				ctx.beginPath();
@@ -87,6 +100,20 @@
 					a = (a*ARROW_L)/vl;
 					b = (b*ARROW_L)/vl;
 					ctx.moveTo(s.x, s.y);
+					
+					//point of intersect
+					ctx.fillStyle = "rgb(255,0,255)"; 
+					for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
+						if( (enemies[i].active == 1) &&
+							((enemies[i].x - s.x-a) * (enemies[i].x - s.x-a) +
+							(enemies[i].y - s.y-b) * (enemies[i].y - s.y-b) <= 1000))	
+							{
+								enemies[i].active = 0;
+								ENEMIES_COUNT--;
+								break;
+				 	        }
+					ctx.arc(s.x+a, s.y+b, 2, 0, 2*Math.PI, 1);
+					
 					ctx.lineTo(s.x + a, s.y + b);
 					ctx.stroke();
 				}
@@ -95,6 +122,15 @@
 					ctx.fillStyle = "rgb(0,0,255)"; 
 					ctx.arc(s.x, s.y, 5, 0, 2*Math.PI, 1);
 					ctx.fill();
+					for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
+						if( (enemies[i].active == 1) &&
+							((enemies[i].x - s.x) * (enemies[i].x - s.x) +
+							(enemies[i].y - s.y) * (enemies[i].y - s.y) <= 225))	
+							{
+								enemies[i].active = 0;
+								ENEMIES_COUNT--;
+				 	        }
+					
 				}
 			}
 			
@@ -110,9 +146,11 @@
 				if (key[KEY_W] && angle > MAX_ANGLE)
 					angle -= ANGLE_STEP;
 				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				
 				//landscape
 				ctx.fillStyle = "rgb(0,255,0)";
-				ctx.fillRect(0, 300, canvas.width, canvas.height - 300);
+				for (var  i = 0; i < canvas.width; ++i)
+					ctx.fillRect(i,landscape[i],1,canvas.height);
 				
 				//moving of the flying shells
 				for (var i = 0; i < MAX_SHELLS_LIM; ++i)
@@ -122,8 +160,14 @@
 						shells[i].t += A;
 						shells[i].x += shells[i].cx;       
 						shells[i].y += shells[i].cy1 - shells[i].cy2*(A/2 - shells[i].t);	
-						if(shells[i].y > canvas.height)
+						TMP = parseInt(shells[i].x);
+						if(shells[i].y > landscape[TMP])
 						{
+							if(shells[i].type == BOMB)
+								for (var j = TMP - 20; j < TMP + 20; ++j)
+							    // WOW
+									landscape[j] += (TMP - j) * (j - TMP) / 20 +20;
+							
 							--shells_cnt;
 							shells[i].y = canvas.height;
 							shells[i].f = 0;
@@ -137,9 +181,21 @@
 					if (enemies[i].active)
 					{
 						enemies[i].x -= enemies[i].v;
-						enemies[i].y = 290;
-						if (enemies[i].x < 0)
+						TMP = parseInt(enemies[i].x);
+						enemies[i].y = landscape[TMP] - 10;
+						if (enemies[i].x < 135)
+						{
+							ctx.fillStyle = "rgb(255,0,0)";
+							ctx.fillRect(75,canvas.height/2-50,50,50);
+				
 							enemies[i].active = 0;
+							LIVES--;
+							if(LIVES == 0)
+							{
+								GAME_OVER = 1;
+								return;
+							}
+						}
 						ctx.beginPath();
 						ctx.arc(enemies[i].x, enemies[i].y, 10, 0, 2*Math.PI, 0);
 						ctx.fill();
@@ -154,11 +210,18 @@
 				ctx.arc(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle), 8, 0, 2*Math.PI, 1);
 				ctx.stroke();
 				ctx.beginPath();
+				ctx.moveTo(100,canvas.height/2-50);
+				ctx.lineTo(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle));
 				ctx.arc(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle), 2, 0, 2*Math.PI, 1);
 				ctx.fill();
-				ctx.fillStyle = "rgb(0,0,0)"
+				
+				//player
+				ctx.fillStyle = "rgb(255,0,255)";
+				ctx.fillRect(75,canvas.height/2-50,50,50);
+				
+				ctx.fillStyle = "rgb(0,0,0)";
 				ctx.font = "20px Consolas";
-				ctx.fillText("g = " + G, 10, 20);
+				ctx.fillText("g = " + G + "  rounds = " + ENEMIES_COUNT + "  LIVES = " + LIVES, 10, 20);
 				ctx.strokeRect(0, 0, canvas.width, canvas.height);
 			}
 
@@ -214,7 +277,7 @@
 					}
 					else
 					{
-						throw_shell();
+                        throw_shell();
 					}
 				}
 				if (param.keyCode == KEY_Q || param.keyCode == KEY_E)
