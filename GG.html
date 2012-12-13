@@ -1,0 +1,241 @@
+<html>
+	<head>
+		<script type = "application/javascript">
+			
+			A = 0.1;
+			G = 9.81;
+			STARTX = 100;
+			STARTY = 250;
+			ARROW = 1;
+			BOMB = 2;
+			ARROW_L = 15;
+			
+			KEY_A = 65;
+			KEY_D = 68;
+			KEY_S = 83;
+			KEY_W = 87;
+			KEY_Q = 81;
+			KEY_E = 69;
+			KEY_SPACE = 32;
+
+			
+			PW_STEP = 0.8;
+			ANGLE_STEP = 0.05;
+			MIN_POWER = 10;
+			MAX_POWER = 90;
+			MAX_ANGLE = -Math.PI/2;
+			MIN_ANGLE = 0;
+			MAX_SHELLS_LIM = 20;
+			MAX_ENEMIES_LIM = 100;
+			MAX_ENEMY_DIST = 1500;
+
+			PW_RECT_X = 50;
+			PW_RECT_Y = 90;
+			AIM_SIZE = 10;
+			AIM_DIST = 50;
+
+			
+			LEVEL_VALUES = 	[{arrows: 100, bombs: 10, enemies: 50, shells_lim : 20}, 
+			                 {arrows: 100, bombs: 10, enemies: 100, shells_lim : 2},
+			                 {arrows: 100, bombs: 10, enemies: 100, shells_lim : 1}];
+			
+			//controls
+			key = new Array(256);
+			started = 0;
+			
+			//gameplay
+			shells = new Array(MAX_SHELLS_LIM);
+			shells_cnt = 0;
+			ammo = {arrows : 0, bombs : 0};
+			pw = 70;
+			angle = -Math.PI/6;
+			weapon = ARROW;
+			enemies = new Array(MAX_ENEMIES_LIM);
+
+			
+			function main()
+			{
+				document.body.style.overflow='hidden';
+				canvas = document.getElementById("_canvas");
+				canvas.width = window.innerWidth - 18;
+				canvas.height = window.innerHeight - 80; 
+				//init
+				for (var i = 0; i < MAX_SHELLS_LIM; ++i)
+					shells[i] = {x : 0, y : 0, t: 0, f: 0, cx : 0, cy1: 0 , cy2: 0, type: 0};
+				for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
+					enemies[i] = {x : 0, y : 0, v: 0, active: 0};
+				ctx = canvas.getContext("2d");
+				ctx.font = "50px Consolas";
+				ctx.fillStyle = "rgb(0,0,255)";
+				ctx.fillText("TIME TO AIM YOUR ARROWS!", 130, 160);
+				ctx.fillStyle = "rgb(0,255,0)";
+				ctx.fillRect(0, 300, canvas.width, canvas.height - 300);
+				ctx.strokeStyle = "rgb(0,0,0)"
+				ctx.lineWidth = 2;
+				ctx.strokeRect(0, 0, canvas.width, canvas.height);
+			}
+			
+			function draw_shell(s)
+			{
+				ctx.beginPath();
+				if (s.type == ARROW)
+				{
+					var a = s.cx;
+					var b = s.cy1 - s.cy2*(A/2 - s.t + A);
+					var vl = Math.sqrt(a*a + b*b);
+					//fix length of the arrow
+					a = (a*ARROW_L)/vl;
+					b = (b*ARROW_L)/vl;
+					ctx.moveTo(s.x, s.y);
+					ctx.lineTo(s.x + a, s.y + b);
+					ctx.stroke();
+				}
+				else
+				{
+					ctx.fillStyle = "rgb(0,0,255)"; 
+					ctx.arc(s.x, s.y, 5, 0, 2*Math.PI, 1);
+					ctx.fill();
+				}
+			}
+			
+			function move()
+			{
+				//actions
+				if (key[KEY_A] && pw >= MIN_POWER)
+					pw -= PW_STEP;
+				if (key[KEY_D] && pw <= MAX_POWER)
+					pw += PW_STEP;
+				if (key[KEY_S] && angle < MIN_ANGLE)
+					angle += ANGLE_STEP;
+				if (key[KEY_W] && angle > MAX_ANGLE)
+					angle -= ANGLE_STEP;
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				//landscape
+				ctx.fillStyle = "rgb(0,255,0)";
+				ctx.fillRect(0, 300, canvas.width, canvas.height - 300);
+				
+				//moving of the flying shells
+				for (var i = 0; i < MAX_SHELLS_LIM; ++i)
+				{
+					if (shells[i].f)
+					{
+						shells[i].t += A;
+						shells[i].x += shells[i].cx;       
+						shells[i].y += shells[i].cy1 - shells[i].cy2*(A/2 - shells[i].t);	
+						if(shells[i].y > canvas.height)
+						{
+							--shells_cnt;
+							shells[i].y = canvas.height;
+							shells[i].f = 0;
+						} 
+						draw_shell(shells[i]);
+					}
+				}
+				//moving of the enemies
+				ctx.fillStyle = "rgb(255,0,0)";
+				for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
+					if (enemies[i].active)
+					{
+						enemies[i].x -= enemies[i].v;
+						enemies[i].y = 290;
+						if (enemies[i].x < 0)
+							enemies[i].active = 0;
+						ctx.beginPath();
+						ctx.arc(enemies[i].x, enemies[i].y, 10, 0, 2*Math.PI, 0);
+						ctx.fill();
+					}
+				//game info
+				//power line
+				ctx.fillStyle = "rgb(255,0,0)";
+				ctx.fillRect(PW_RECT_X, PW_RECT_Y, pw - MIN_POWER, 10);
+				ctx.strokeRect(PW_RECT_X, PW_RECT_Y, MAX_POWER - MIN_POWER, 10);
+				//aim
+				ctx.beginPath();
+				ctx.arc(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle), 8, 0, 2*Math.PI, 1);
+				ctx.stroke();
+				ctx.beginPath();
+				ctx.arc(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle), 2, 0, 2*Math.PI, 1);
+				ctx.fill();
+				ctx.fillStyle = "rgb(0,0,0)"
+				ctx.font = "20px Consolas";
+				ctx.fillText("g = " + G, 10, 20);
+				ctx.strokeRect(0, 0, canvas.width, canvas.height);
+			}
+
+			function throw_shell()
+			{
+				if (shells_cnt == level.shells_lim)
+					return;
+				for (var i = 0; i < MAX_SHELLS_LIM; ++i)
+				{
+					if (!shells[i].f)
+					{
+						++shells_cnt;
+						shells[i].x = STARTX;
+						shells[i].y = STARTY;
+						shells[i].f = 1;
+						shells[i].t = 0;
+						shells[i].cx = A*pw*Math.cos(angle); 
+						shells[i].cy1 = A*pw*Math.sin(angle);
+						shells[i].cy2 = G*A;
+						shells[i].type = weapon; 
+						return;
+					}
+				}
+			}
+			
+			function key_down(param)
+			{
+				console.info(param.keyCode);
+				key[param.keyCode] = 1;	
+			}
+
+			function key_up(param)
+			{
+				key[param.keyCode] = 0;
+				if (param.keyCode == KEY_SPACE)
+				{
+					if (!started)
+					{
+						var rg = document.getElementsByName("_r1");   
+						for (var i = 0; i < 3; ++i)
+						{
+							if(rg[i].checked)
+								level = LEVEL_VALUES[i];
+						}
+						for (var i = 0; i < level.enemies; ++i)
+						{
+							enemies[i].x = canvas.width + MAX_ENEMY_DIST*Math.random();
+							enemies[i].v = 5*Math.random();
+							enemies[i].active = 1;
+						}
+						window.setInterval(move, 10);
+						started = 1;
+					}
+					else
+					{
+						throw_shell();
+					}
+				}
+				if (param.keyCode == KEY_Q || param.keyCode == KEY_E)
+				{
+					if (weapon == ARROW)
+						weapon = BOMB;
+					else
+						weapon = ARROW;
+				}
+			}
+			
+			window.onkeydown = key_down;
+			window.onkeyup = key_up;
+		</script>
+	</head>
+	<body onload = "main();">
+			<h3 align = "center"> Geometric game </h3>
+			<b>Level:</b>
+			<input name = "_r1" type = "radio" value = "easy" checked>easy</input>
+			<input name = "_r1" type = "radio" value = "medium">medium</input>
+			<input name = "_r1" type = "radio" value = "hard">hard</input>
+		<canvas id = "_canvas"></canvas>
+	</body>
+</html>
