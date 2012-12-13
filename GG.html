@@ -38,10 +38,12 @@
 			LIVES = 3;
 			GAME_OVER = 0;
 			PLAYER_CLOLOR = 100;
+			CANON_RAD = 10;
+			ENEMIES_RAD = 10;
 
 			
-			LEVEL_VALUES = 	[{arrows: 100, bombs: 10, enemies: 20, shells_lim : 20}, 
-			                 {arrows: 100, bombs: 10, enemies: 50, shells_lim : 3},
+			LEVEL_VALUES = 	[{arrows: 100, bombs: 10, enemies: 100, shells_lim : 20}, 
+			                 {arrows: 100, bombs: 10, enemies: 100, shells_lim : 3},
 			                 {arrows: 100, bombs: 10, enemies: 100, shells_lim : 1}];
 			
 			//controls
@@ -84,7 +86,7 @@
 
 				STARTY = canvas.height/2-50;
 				for (var i = 0; i < canvas.width; ++i)
-					landscape[i] = canvas.height/2-Math.random()*10;
+					landscape[i] = canvas.height/2-Math.random()*50;
 				
 			}
 
@@ -120,12 +122,12 @@
 				else
 				{
 					ctx.fillStyle = "rgb(0,0,255)"; 
-					ctx.arc(s.x, s.y, 5, 0, 2*Math.PI, 1);
+					ctx.arc(s.x, s.y, CANON_RAD, 0, 2*Math.PI, 1);
 					ctx.fill();
 					for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
 						if( (enemies[i].active == 1) &&
 							((enemies[i].x - s.x) * (enemies[i].x - s.x) +
-							(enemies[i].y - s.y) * (enemies[i].y - s.y) <= 225))	
+							(enemies[i].y - s.y) * (enemies[i].y - s.y) <= (CANON_RAD+ENEMIES_RAD)*(CANON_RAD+ENEMIES_RAD)))	
 							{
 								enemies[i].active = 0;
 								ENEMIES_COUNT--;
@@ -147,11 +149,28 @@
 					angle -= ANGLE_STEP;
 				ctx.clearRect(0, 0, canvas.width, canvas.height);
 				
+				//player
+				ctx.fillStyle = "rgb(255,0,255)";
+				ctx.fillRect(75,canvas.height/2-50,50,50);
+			
 				//landscape
-				ctx.fillStyle = "rgb(0,255,0)";
+				for (var  i = 1; i < canvas.width-2; ++i)
+				{
+					ls = (landscape[i]-landscape[i-1]);
+					landscape[i]-=ls/3;
+					landscape[i-1]+=ls/3;
+				}
 				for (var  i = 0; i < canvas.width; ++i)
+				{
+					ctx.fillStyle = "rgb(0,195,0)";
 					ctx.fillRect(i,landscape[i],1,canvas.height);
-				
+				    if(landscape[i]<canvas.height/2)
+				    {
+				    	ctx.fillStyle = "rgb(111,255,111)";
+						ctx.fillRect(i,landscape[i],1,canvas.height/2-landscape[i]);
+					}
+				}
+
 				//moving of the flying shells
 				for (var i = 0; i < MAX_SHELLS_LIM; ++i)
 				{
@@ -161,45 +180,61 @@
 						shells[i].x += shells[i].cx;       
 						shells[i].y += shells[i].cy1 - shells[i].cy2*(A/2 - shells[i].t);	
 						TMP = parseInt(shells[i].x);
-						if(shells[i].y > landscape[TMP])
+						
+						//landscape destroy
+						if(shells[i].y > landscape[TMP] - CANON_RAD)
 						{
-							if(shells[i].type == BOMB)
-								for (var j = TMP - 20; j < TMP + 20; ++j)
+							if((shells[i].type == BOMB) && (landscape[TMP] < canvas.height))
+								for (var j = -CANON_RAD*2; j < 2*CANON_RAD; ++j)
+							    {
 							    // WOW
-									landscape[j] += (TMP - j) * (j - TMP) / 20 +20;
-							
+							    	yy = shells[i].y+1.5*Math.sqrt((CANON_RAD*4)*CANON_RAD-j*j);//*(1+3*Math.random());
+							    	landscape[TMP+j]=Math.max(landscape[TMP+j],yy);
+							    	//second var landscape[TMP + j] = Math.sqrt(Math.abs(CANON_RAD*CANON_RAD-j*j))*(Math.random()+1)+landscape[TMP+j];
+									//work!! landscape[j] += (TMP - j) * (j - TMP) / 20 +20;
+							    }
 							--shells_cnt;
-							shells[i].y = canvas.height;
 							shells[i].f = 0;
 						} 
 						draw_shell(shells[i]);
 					}
 				}
 				//moving of the enemies
-				ctx.fillStyle = "rgb(255,0,0)";
+				ctx.fillStyle="rgb(255,0,0)";
 				for (var i = 0; i < MAX_ENEMIES_LIM; ++i)
 					if (enemies[i].active)
 					{
-						enemies[i].x -= enemies[i].v;
+						enemies[i].x -= enemies[i].v/2;
 						TMP = parseInt(enemies[i].x);
-						enemies[i].y = landscape[TMP] - 10;
+						ss=0;
+						for(var j=TMP-5; j<TMP+5; ++j)
+							ss+=landscape[j];
+						enemies[i].y = ss/10-ENEMIES_RAD;
 						if (enemies[i].x < 135)
 						{
-							ctx.fillStyle = "rgb(255,0,0)";
-							ctx.fillRect(75,canvas.height/2-50,50,50);
-				
 							enemies[i].active = 0;
 							LIVES--;
+
 							if(LIVES == 0)
 							{
 								GAME_OVER = 1;
 								return;
 							}
+							ENEMIES_COUNT--;
 						}
+						if (enemies[i].y >= canvas.height-10)
+						{
+							enemies[i].active = 0;
+							ENEMIES_COUNT--;
+						}
+						ctx.fillStyle="rgb(255,0,0)";
 						ctx.beginPath();
-						ctx.arc(enemies[i].x, enemies[i].y, 10, 0, 2*Math.PI, 0);
+						ctx.arc(enemies[i].x, enemies[i].y, ENEMIES_RAD, 0, 2*Math.PI, 0);
 						ctx.fill();
+						ctx.fillStyle="rgb(0,0,0)";
+						ctx.fillText(enemies[i].v,enemies[i].x-5,enemies[i].y+5);
 					}
+				
 				//game info
 				//power line
 				ctx.fillStyle = "rgb(255,0,0)";
@@ -214,10 +249,6 @@
 				ctx.lineTo(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle));
 				ctx.arc(STARTX + AIM_DIST*Math.cos(angle), STARTY + AIM_DIST*Math.sin(angle), 2, 0, 2*Math.PI, 1);
 				ctx.fill();
-				
-				//player
-				ctx.fillStyle = "rgb(255,0,255)";
-				ctx.fillRect(75,canvas.height/2-50,50,50);
 				
 				ctx.fillStyle = "rgb(0,0,0)";
 				ctx.font = "20px Consolas";
@@ -265,11 +296,11 @@
 						{
 							if(rg[i].checked)
 								level = LEVEL_VALUES[i];
-						}
+						}  
 						for (var i = 0; i < level.enemies; ++i)
 						{
-							enemies[i].x = canvas.width + MAX_ENEMY_DIST*Math.random();
-							enemies[i].v = 5*Math.random();
+							enemies[i].x = canvas.width+(100-i)*i*(4+Math.random());
+							enemies[i].v = 3 + parseInt(i/25)+parseInt(i/25*Math.random());
 							enemies[i].active = 1;
 						}
 						window.setInterval(move, 10);
